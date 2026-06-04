@@ -11,26 +11,51 @@
 </head>
 <body>
 
-<!-- ── Sign-in overlay — shown to unauthenticated visitors ───────────────── -->
-<div class="name-overlay" id="signin-overlay"
-     role="dialog" aria-modal="true" aria-labelledby="signin-title">
+<!-- ── Identify overlay — shown to visitors who have no active session ──── -->
+<div class="name-overlay" id="identify-overlay"
+     role="dialog" aria-modal="true" aria-labelledby="identify-title">
   <div class="name-card">
 
-    <div class="name-avatar" id="signin-initials" aria-hidden="true">MA</div>
+    <div class="name-avatar" id="identify-initials" aria-hidden="true">MA</div>
 
-    <h2 class="name-card-title" id="signin-title">Welcome! 👋</h2>
-    <p class="name-card-sub" id="signin-sub">
-      Sign in to chat and save your conversations.
+    <h2 class="name-card-title" id="identify-title">Welcome! 👋</h2>
+    <p class="name-card-sub" id="identify-sub">
+      Tell us who you are to get started.
     </p>
 
-    <a href="/auth/login" class="hf-signin-btn">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-      </svg>
-      Sign in with HuggingFace
-    </a>
+    <input
+      type="text"
+      id="identify-name"
+      class="name-input"
+      placeholder="Your name"
+      maxlength="50"
+      autocomplete="name"
+      spellcheck="false"
+      aria-label="Your name"
+    />
 
-    <p class="signin-note">Free &nbsp;·&nbsp; No ads &nbsp;·&nbsp; Conversations saved</p>
+    <input
+      type="email"
+      id="identify-email"
+      class="name-input"
+      placeholder="your@email.com"
+      maxlength="200"
+      autocomplete="email"
+      aria-label="Your email"
+      style="margin-top: 10px;"
+    />
+
+    <button class="name-submit-btn" id="identify-submit" disabled>
+      Start chatting
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.5"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+        <polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </button>
+
+    <p class="signin-note">Your conversations are saved for next time.</p>
 
   </div>
 </div>
@@ -46,15 +71,7 @@
         </div>
       </div>
       <div class="header-right">
-        <!-- Sign in — shown when not authenticated -->
-        <a href="/auth/login" class="signin-btn" id="signin-btn" aria-label="Sign in with HuggingFace">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-          </svg>
-          Sign in
-        </a>
-
-        <!-- User info — shown when authenticated -->
+        <!-- User info — shown when identified -->
         <div class="header-user" id="header-user" hidden>
           <img class="header-user-avatar" id="header-user-avatar"
                src="" alt="Your avatar" width="28" height="28" />

@@ -15,6 +15,16 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
+# HuggingFace injects SPACE_HOST as just the hostname, e.g.
+# "cyborgmass-talk-with-me.hf.space". Prepend https:// if needed.
+_raw_host = os.getenv("SPACE_HOST", "")
+if _raw_host and not _raw_host.startswith("http"):
+    _space_host = f"https://{_raw_host}"
+elif _raw_host:
+    _space_host = _raw_host
+else:
+    _space_host = "http://localhost:8000"
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -45,10 +55,7 @@ class Settings:
     linkedin_pdf: str      = "profile/linkedin.pdf"
     summary_txt: str       = "profile/summary.txt"
     db_path: str           = os.getenv("DB_PATH", "data/chat.db")
-    hf_oauth_client_id: str     = os.getenv("OAUTH_CLIENT_ID", "")
-    hf_oauth_client_secret: str = os.getenv("OAUTH_CLIENT_SECRET", "")
-    hf_space_host: str          = os.getenv("SPACE_HOST", "http://localhost:8000")
-    session_secret: str         = os.getenv("SESSION_SECRET", "change-me-in-production")
+    session_secret: str    = os.getenv("SESSION_SECRET", "change-me-in-production")
 
 
 # Singleton imported by all other modules — never instantiate Settings directly.

@@ -5,10 +5,6 @@ colorFrom: blue
 colorTo: indigo
 sdk: docker
 app_port: 7860
-hf_oauth: true
-hf_oauth_scopes:
-  - read-repos
-  - email
 pinned: false
 ---
 

@@ -184,18 +184,15 @@ async function loadProfile() {
       });
     }
 
-    // ── Branch: authenticated vs unauthenticated ──────────────────────────
+    // ── Branch: returning visitor (session exists) vs new visitor ────────
     if (auth.authenticated) {
       state.isAuthenticated = true;
       state.authUser        = auth;
       state.userName        = auth.username;
 
       showHeaderUser(auth);
+      document.getElementById('identify-overlay')?.remove();
 
-      // Remove sign-in overlay — user is already authenticated
-      document.getElementById('signin-overlay')?.remove();
-
-      // Create a new conversation + load history list in parallel
       const [conv] = await Promise.all([
         apiCreateConversation(),
         loadConversations(),
@@ -205,23 +202,94 @@ async function loadProfile() {
       startChat(p);
 
     } else {
-      // Not authenticated — populate the sign-in overlay with profile data
-      // and leave it visible so the user must sign in before chatting
-      const $initials = document.getElementById('signin-initials');
-      const $sub      = document.getElementById('signin-sub');
-      if ($initials) $initials.textContent = p.initials || 'AI';
-      if ($sub)      $sub.textContent      = `Sign in to chat with ${p.name}'s AI assistant.`;
+      // New visitor — show the name + email form
+      showIdentifyOverlay(p);
     }
 
   } catch (err) {
     console.error('Profile load failed:', err);
-    // Sign-in overlay stays visible on error — user can still try to sign in
+    showIdentifyOverlay({ name: 'the assistant', initials: 'AI', suggested_questions: [] });
   }
 }
 
 /**
+ * Show the name + email form overlay for new visitors.
+ * On submit, POSTs to /auth/identify to create a session.
+ */
+function showIdentifyOverlay(profileData) {
+  const $overlay  = document.getElementById('identify-overlay');
+  const $nameInput  = document.getElementById('identify-name');
+  const $emailInput = document.getElementById('identify-email');
+  const $submitBtn  = document.getElementById('identify-submit');
+
+  // Populate avatar and subtitle with profile data
+  const $initials = document.getElementById('identify-initials');
+  const $sub      = document.getElementById('identify-sub');
+  if ($initials) $initials.textContent = profileData.initials || 'AI';
+  if ($sub)      $sub.textContent      = `Tell us who you are to chat with ${profileData.name}'s AI assistant.`;
+
+  // Enable submit only when both name and email are filled
+  const syncBtn = () => {
+    $submitBtn.disabled = !$nameInput.value.trim() || !$emailInput.value.trim();
+  };
+  $nameInput.addEventListener('input', syncBtn);
+  $emailInput.addEventListener('input', syncBtn);
+
+  const submit = async () => {
+    const name  = $nameInput.value.trim();
+    const email = $emailInput.value.trim();
+    if (!name || !email) return;
+
+    $submitBtn.disabled  = true;
+    $submitBtn.innerHTML = '<span class="spinner"></span>';
+
+    try {
+      const res = await fetch('/auth/identify', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ username: name, email }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      state.isAuthenticated = true;
+      state.userName        = data.username;
+      state.authUser        = { id: data.id, username: data.username, avatar_url: '' };
+
+      showHeaderUser(state.authUser);
+
+      // Animate overlay out then start chat
+      $overlay.classList.add('hiding');
+      $overlay.addEventListener('animationend', async () => {
+        $overlay.remove();
+
+        const [conv] = await Promise.all([
+          apiCreateConversation(),
+          loadConversations(),
+        ]);
+        if (conv) state.convId = conv.id;
+
+        startChat(profileData);
+      }, { once: true });
+
+    } catch (err) {
+      console.error('Identify failed:', err);
+      $submitBtn.disabled  = false;
+      $submitBtn.innerHTML = `Start chatting ${iconArrowRight()}`;
+    }
+  };
+
+  $nameInput.addEventListener('keydown',  e => { if (e.key === 'Enter') $emailInput.focus(); });
+  $emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  $submitBtn.addEventListener('click', submit);
+
+  setTimeout(() => $nameInput.focus(), 400);
+}
+
+/**
  * Show the personalised greeting and suggestion chips.
- * Called once the user is authenticated and the overlay is removed.
+ * Called once the visitor is identified and the overlay is removed.
  *
  * @param {object} profileData
  */
