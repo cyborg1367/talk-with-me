@@ -184,85 +184,44 @@ async function loadProfile() {
       });
     }
 
-    // ── Branch: authenticated vs guest ────────────────────────────────────
+    // ── Branch: authenticated vs unauthenticated ──────────────────────────
     if (auth.authenticated) {
       state.isAuthenticated = true;
       state.authUser        = auth;
       state.userName        = auth.username;
 
-      // Show user info in header, hide sign-in button
       showHeaderUser(auth);
 
-      // Create a new conversation + load history list (parallel)
+      // Remove sign-in overlay — user is already authenticated
+      document.getElementById('signin-overlay')?.remove();
+
+      // Create a new conversation + load history list in parallel
       const [conv] = await Promise.all([
         apiCreateConversation(),
         loadConversations(),
       ]);
       if (conv) state.convId = conv.id;
 
-      // Remove the name overlay entirely — not needed for auth users
-      document.getElementById('name-overlay')?.remove();
-
       startChat(p);
 
     } else {
-      // Guest — show sign-in button and name overlay
-      document.getElementById('signin-btn').hidden = false;
-      showNameOverlay(p);
+      // Not authenticated — populate the sign-in overlay with profile data
+      // and leave it visible so the user must sign in before chatting
+      const $initials = document.getElementById('signin-initials');
+      const $sub      = document.getElementById('signin-sub');
+      if ($initials) $initials.textContent = p.initials || 'AI';
+      if ($sub)      $sub.textContent      = `Sign in to chat with ${p.name}'s AI assistant.`;
     }
 
   } catch (err) {
     console.error('Profile load failed:', err);
-    showNameOverlay({ name: 'the assistant', initials: 'AI', suggested_questions: [] });
+    // Sign-in overlay stays visible on error — user can still try to sign in
   }
-}
-
-// ── Name overlay ──────────────────────────────────────────────────────────
-
-/**
- * Display the name-collection overlay.
- * When the user submits, the overlay fades out and startChat() is called.
- *
- * @param {object} profileData  The profile object returned by /api/profile.
- */
-function showNameOverlay(profileData) {
-  const $overlay   = document.getElementById('name-overlay');
-  const $nameInput = document.getElementById('name-input');
-  const $submitBtn = document.getElementById('name-submit-btn');
-
-  // Fill avatar with the profile initials
-  const $overlayInitials = document.getElementById('overlay-initials');
-  if ($overlayInitials) $overlayInitials.textContent = profileData.initials || 'AI';
-
-  // Enable submit only when there is text
-  $nameInput.addEventListener('input', () => {
-    $submitBtn.disabled = !$nameInput.value.trim();
-  });
-
-  const submit = () => {
-    const name = $nameInput.value.trim();
-    if (!name) return;
-
-    state.userName = name;
-
-    // Animate the overlay out, then remove it and start the chat
-    $overlay.classList.add('hiding');
-    $overlay.addEventListener('animationend', () => {
-      $overlay.remove();
-      startChat(profileData);
-    }, { once: true });
-  };
-
-  $nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
-  $submitBtn.addEventListener('click', submit);
-
-  // Auto-focus after the card entrance animation finishes
-  setTimeout(() => $nameInput.focus(), 400);
 }
 
 /**
  * Show the personalised greeting and suggestion chips.
- * Called after the user has submitted their name.
+ * Called once the user is authenticated and the overlay is removed.
  *
  * @param {object} profileData
  */

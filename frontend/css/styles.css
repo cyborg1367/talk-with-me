@@ -1274,3 +1274,35 @@ body {
   .signin-btn { padding: 4px 10px; font-size: .7rem; }
   .header-user-name { display: none; }  /* save space — avatar is enough */
 }
+
+/* ── HuggingFace sign-in button (inside the sign-in overlay card) ─────── */
+.hf-signin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 20px;
+  background: #FFD21E;          /* HuggingFace brand yellow */
+  color: #1a1a1a;
+  border-radius: var(--r-md);
+  text-decoration: none;
+  font-size: .95rem; font-weight: 700;
+  letter-spacing: -.01em;
+  box-shadow: 0 2px 10px rgba(255,210,30,.4);
+  transition: background .15s, transform .1s, box-shadow .15s;
+  touch-action: manipulation;
+  margin-bottom: 16px;
+}
+.hf-signin-btn:hover {
+  background: #f5c800;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255,210,30,.5);
+}
+.hf-signin-btn:active { transform: translateY(0); }
+
+.signin-note {
+  font-size: .72rem;
+  color: var(--text-faint);
+  text-align: center;
+}
