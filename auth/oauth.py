@@ -41,18 +41,19 @@ def is_oauth_configured() -> bool:
     return bool(settings.hf_oauth_client_id and settings.hf_oauth_client_secret)
 
 
-def get_auth_url(state: str) -> str:
+def get_auth_url(state: str, redirect_uri: str) -> str:
     """Build the HuggingFace authorisation URL.
 
     Args:
-        state: A random CSRF token stored in the session before redirecting.
+        state:        A random CSRF token stored in the session.
+        redirect_uri: The absolute callback URL (built from the request).
 
     Returns:
         Full URL to redirect the user to for login.
     """
     params = {
         "client_id":     settings.hf_oauth_client_id,
-        "redirect_uri":  _redirect_uri(),
+        "redirect_uri":  redirect_uri,
         "scope":         "openid profile",
         "response_type": "code",
         "state":         state,
@@ -60,17 +61,12 @@ def get_auth_url(state: str) -> str:
     return f"{HF_AUTH_URL}?{urlencode(params)}"
 
 
-async def exchange_code(code: str) -> dict:
+async def exchange_code(code: str, redirect_uri: str) -> dict:
     """Exchange an authorisation code for an access token.
 
     Args:
-        code: The ``code`` query parameter from the OAuth callback.
-
-    Returns:
-        Token response dict containing at least ``access_token``.
-
-    Raises:
-        httpx.HTTPStatusError: If the token endpoint returns an error.
+        code:         The ``code`` query parameter from the OAuth callback.
+        redirect_uri: Must exactly match the URI used in the auth request.
     """
     async with httpx.AsyncClient() as client:
         resp = await client.post(
@@ -78,7 +74,7 @@ async def exchange_code(code: str) -> dict:
             data={
                 "grant_type":    "authorization_code",
                 "code":          code,
-                "redirect_uri":  _redirect_uri(),
+                "redirect_uri":  redirect_uri,
                 "client_id":     settings.hf_oauth_client_id,
                 "client_secret": settings.hf_oauth_client_secret,
             },
@@ -112,10 +108,3 @@ async def get_userinfo(access_token: str) -> dict:
         )
         resp.raise_for_status()
         return resp.json()
-
-
-# ── Private ───────────────────────────────────────────────────────────────
-
-def _redirect_uri() -> str:
-    """The absolute callback URL registered with HuggingFace."""
-    return f"{settings.hf_space_host}/auth/callback"

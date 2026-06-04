@@ -26,15 +26,24 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _build_redirect_uri(request: Request) -> str:
+    """Derive the OAuth callback URL from the incoming request.
+
+    Uses ``x-forwarded-proto`` and ``x-forwarded-host`` when present so
+    the URI is correct behind HuggingFace's reverse proxy (which terminates
+    TLS and forwards as HTTP internally).
+    """
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    host  = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    return f"{proto}://{host}/auth/callback"
+
+
 # ── Login ─────────────────────────────────────────────────────────────────
 
 @router.get("/login", summary="Redirect to HuggingFace login")
 async def login(request: Request) -> RedirectResponse:
     """Generate a CSRF state token, store it in the session, and redirect
     the user to HuggingFace's OAuth authorisation page.
-
-    Only available when OAuth credentials are configured (i.e. on a
-    HuggingFace Space with ``hf_oauth: true``).
     """
     if not is_oauth_configured():
         raise HTTPException(
@@ -42,11 +51,17 @@ async def login(request: Request) -> RedirectResponse:
             detail="OAuth is not configured. This feature is only available on HuggingFace Spaces.",
         )
 
-    # CSRF protection: store a random state token in the session.
-    state = secrets.token_urlsafe(32)
-    request.session["oauth_state"] = state
+    state        = secrets.token_urlsafe(32)
+    redirect_uri = _build_redirect_uri(request)
 
-    return RedirectResponse(get_auth_url(state))
+    # Store both state (CSRF) and redirect_uri so the callback can use
+    # the exact same URI — HuggingFace requires they match precisely.
+    request.session["oauth_state"]       = state
+    request.session["oauth_redirect_uri"] = redirect_uri
+
+    logger.info("OAuth login → redirect_uri: %s", redirect_uri)
+
+    return RedirectResponse(get_auth_url(state, redirect_uri))
 
 
 # ── Callback ──────────────────────────────────────────────────────────────
@@ -73,22 +88,25 @@ async def callback(
         logger.warning("OAuth callback: invalid state parameter")
         raise HTTPException(status_code=400, detail="Invalid OAuth state. Please try signing in again.")
 
-    # ② Exchange code for token
+    # ② Retrieve the redirect_uri stored during /auth/login
+    redirect_uri = request.session.pop("oauth_redirect_uri", None) or _build_redirect_uri(request)
+
+    # ③ Exchange code for token
     try:
-        token_data = await exchange_code(code)
+        token_data   = await exchange_code(code, redirect_uri)
         access_token = token_data["access_token"]
     except Exception as exc:
         logger.error("OAuth token exchange failed: %s", exc)
         raise HTTPException(status_code=502, detail="Failed to exchange OAuth code. Please try again.")
 
-    # ③ Fetch user profile
+    # ④ Fetch user profile
     try:
         userinfo = await get_userinfo(access_token)
     except Exception as exc:
         logger.error("OAuth userinfo fetch failed: %s", exc)
         raise HTTPException(status_code=502, detail="Failed to fetch user profile. Please try again.")
 
-    # ④ Upsert user in the database
+    # ⑤ Upsert user in the database
     with get_db() as db:
         user = upsert_user(
             db,
@@ -98,7 +116,7 @@ async def callback(
             email=userinfo.get("email", ""),
         )
 
-    # ⑤ Write minimal user info to the session cookie
+    # ⑥ Write minimal user info to the session cookie
     set_session_user(request, {
         "id":         user.id,
         "username":   user.username,
@@ -107,7 +125,7 @@ async def callback(
 
     logger.info("User signed in: %s", user.username)
 
-    # ⑥ Redirect to home
+    # ⑦ Redirect to home
     return RedirectResponse("/", status_code=302)
 
 
