@@ -16,9 +16,6 @@ dependencies = [
     # HTTP client — used for OAuth token exchange
     "httpx>=0.27.0",
 
-    # Session cookie signing (required by Starlette SessionMiddleware)
-    "itsdangerous>=2.1.0",
-
     # Profile context loading
     "pypdf>=5.4.0",
 
