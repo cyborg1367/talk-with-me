@@ -19,9 +19,14 @@ const state = {
   botInitials:      'AI',
   firstMessageSent: false,
   userName:         '',
-  ownerName:        '',     // set in startChat; used by the CTA
-  botResponseCount: 0,      // incremented after every real bot reply
-  ctaShown:         false,  // ensures the CTA appears at most once
+  ownerName:        '',
+  botResponseCount: 0,
+  ctaShown:         false,
+  // Auth + history
+  isAuthenticated:  false,
+  authUser:         null,   // {id, username, avatar_url}
+  convId:           null,   // active conversation id (null for guests)
+  profileData:      null,   // stored so newConversation() can rebuild greeting
 };
 
 // ── DOM references ────────────────────────────────────────────────────────
@@ -128,37 +133,38 @@ $scrollBtn.addEventListener('click', scrollToBottom);
 
 async function loadProfile() {
   try {
-    const res = await fetch('/api/profile');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const p = await res.json();
+    // Fetch profile and auth status in parallel — saves one round-trip
+    const [profileRes, authRes] = await Promise.all([
+      fetch('/api/profile'),
+      fetch('/auth/me'),
+    ]);
 
+    if (!profileRes.ok) throw new Error(`Profile HTTP ${profileRes.status}`);
+    const p    = await profileRes.json();
+    const auth = await authRes.json();
+
+    // ── Populate sidebar + header (always, regardless of auth) ───────────
     state.botInitials = p.initials;
 
-    // Header
-    document.getElementById('hdr-initials').textContent = p.initials;
-    document.getElementById('hdr-name').textContent     = p.name;
-    document.getElementById('hdr-tagline').textContent  = p.tagline;
-    document.getElementById('hdr-status').textContent   = p.status;
+    document.getElementById('hdr-initials').textContent    = p.initials;
+    document.getElementById('hdr-name').textContent        = p.name;
+    document.getElementById('hdr-tagline').textContent     = p.tagline;
+    document.getElementById('hdr-status').textContent      = p.status;
+    document.getElementById('sb-initials').textContent     = p.initials;
+    document.getElementById('sb-name').textContent         = p.name;
+    document.getElementById('sb-title').textContent        = p.title;
+    document.getElementById('sb-tagline').textContent      = p.tagline;
+    document.getElementById('sb-status').textContent       = p.status;
+    document.getElementById('typing-initials').textContent = p.initials;
     document.title = `${p.name} — AI Assistant`;
 
-    // Sidebar
-    document.getElementById('sb-initials').textContent      = p.initials;
-    document.getElementById('sb-name').textContent          = p.name;
-    document.getElementById('sb-title').textContent         = p.title;
-    document.getElementById('sb-tagline').textContent       = p.tagline;
-    document.getElementById('sb-status').textContent        = p.status;
-    document.getElementById('typing-initials').textContent  = p.initials;
-
-    // Skills
     const $skills = document.getElementById('sb-skills');
     p.skills.forEach(skill => {
       const tag = document.createElement('span');
-      tag.className = 'skill-tag';
-      tag.textContent = skill;
+      tag.className = 'skill-tag'; tag.textContent = skill;
       $skills.appendChild(tag);
     });
 
-    // Social links
     const links = [
       { href: p.linkedin_url,                     label: 'LinkedIn', icon: iconLinkedIn() },
       { href: p.github_url,                       label: 'GitHub',   icon: iconGitHub() },
@@ -178,12 +184,35 @@ async function loadProfile() {
       });
     }
 
-    // Show name overlay — it calls startChat(p) once the user submits their name
-    showNameOverlay(p);
+    // ── Branch: authenticated vs guest ────────────────────────────────────
+    if (auth.authenticated) {
+      state.isAuthenticated = true;
+      state.authUser        = auth;
+      state.userName        = auth.username;
+
+      // Show user info in header, hide sign-in button
+      showHeaderUser(auth);
+
+      // Create a new conversation + load history list (parallel)
+      const [conv] = await Promise.all([
+        apiCreateConversation(),
+        loadConversations(),
+      ]);
+      if (conv) state.convId = conv.id;
+
+      // Remove the name overlay entirely — not needed for auth users
+      document.getElementById('name-overlay')?.remove();
+
+      startChat(p);
+
+    } else {
+      // Guest — show sign-in button and name overlay
+      document.getElementById('signin-btn').hidden = false;
+      showNameOverlay(p);
+    }
 
   } catch (err) {
     console.error('Profile load failed:', err);
-    // If profile fails, show overlay with empty profile data
     showNameOverlay({ name: 'the assistant', initials: 'AI', suggested_questions: [] });
   }
 }
@@ -239,7 +268,8 @@ function showNameOverlay(profileData) {
  */
 function startChat(profileData) {
   const firstName = profileData.name?.split(' ')[0] ?? 'me';
-  state.ownerName = profileData.name ?? '';
+  state.ownerName  = profileData.name ?? '';
+  state.profileData = profileData;   // stored so newConversation() can rebuild the greeting
 
   const greeting =
     `Hi ${state.userName}! 👋 I'm ${profileData.name}'s AI assistant. `
@@ -489,7 +519,7 @@ async function sendMessage() {
     const res = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, history: historySnapshot }),
+      body: JSON.stringify({ message: text, history: historySnapshot, conv_id: state.convId }),
     });
 
     if (!res.ok) {
@@ -554,7 +584,7 @@ async function sendMessage() {
       const fallback = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history: historySnapshot }),
+        body: JSON.stringify({ message: text, history: historySnapshot, conv_id: state.convId }),
       });
 
       if (!fallback.ok) {
@@ -767,6 +797,179 @@ $input.addEventListener('keydown', e => {
 });
 $sendBtn.addEventListener('click', sendMessage);
 
+// ── Auth helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Update the header to show the signed-in user's avatar and username.
+ * @param {{username: string, avatar_url: string}} auth
+ */
+function showHeaderUser(auth) {
+  const $signinBtn  = document.getElementById('signin-btn');
+  const $headerUser = document.getElementById('header-user');
+  const $avatar     = document.getElementById('header-user-avatar');
+  const $name       = document.getElementById('header-user-name');
+
+  if ($signinBtn)  $signinBtn.hidden  = true;
+  if ($headerUser) $headerUser.hidden = false;
+  if ($name)       $name.textContent  = auth.username;
+  if ($avatar && auth.avatar_url) {
+    $avatar.src = auth.avatar_url;
+    $avatar.alt = `${auth.username}'s avatar`;
+  }
+}
+
+// ── Conversation API helpers ──────────────────────────────────────────────
+
+/** POST /api/conversations — create a new conversation and return it. */
+async function apiCreateConversation() {
+  try {
+    const res = await fetch('/api/conversations', { method: 'POST' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  } catch (err) {
+    console.error('Failed to create conversation:', err);
+    return null;
+  }
+}
+
+/** GET /api/conversations — fetch list and render the history panel. */
+async function loadConversations() {
+  try {
+    const res = await fetch('/api/conversations');
+    if (!res.ok) return;
+    const convs = await res.json();
+    renderHistoryList(convs);
+  } catch (err) {
+    console.error('Failed to load conversations:', err);
+  }
+}
+
+/**
+ * GET /api/conversations/{id} — load messages and render them in the chat.
+ * @param {number} convId
+ */
+async function loadConversation(convId) {
+  try {
+    const res = await fetch(`/api/conversations/${convId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const messages = await res.json();
+
+    // Reset chat state for this conversation
+    $messages.innerHTML = '';
+    document.getElementById('suggestions')?.remove();
+    document.getElementById('cta-card')?.remove();
+    state.history         = [];
+    state.convId          = convId;
+    state.botResponseCount = 0;
+    state.ctaShown        = false;
+    state.firstMessageSent = messages.length > 0;
+
+    // Render each message
+    for (const msg of messages) {
+      addMessage(msg.role, msg.content);
+      state.history.push({ role: msg.role, content: msg.content });
+    }
+
+    if (!messages.length) {
+      // Empty conversation — show greeting again
+      startChat(state.profileData);
+    }
+
+    // Mark active item in history list
+    document.querySelectorAll('.history-item').forEach(el => {
+      el.classList.toggle('history-item--active', Number(el.dataset.convId) === convId);
+    });
+
+    scrollToBottom();
+
+  } catch (err) {
+    console.error('Failed to load conversation:', err);
+  }
+}
+
+/**
+ * Start a brand new conversation: create row in DB, reset UI, show greeting.
+ */
+async function newConversation() {
+  const conv = await apiCreateConversation();
+  if (!conv) return;
+
+  state.convId          = conv.id;
+  state.history         = [];
+  state.botResponseCount = 0;
+  state.ctaShown        = false;
+  state.firstMessageSent = false;
+
+  $messages.innerHTML = '';
+  document.getElementById('suggestions')?.remove();
+  document.getElementById('cta-card')?.remove();
+
+  startChat(state.profileData);
+
+  // Refresh history list so new conversation appears at top
+  loadConversations();
+}
+
+/**
+ * Render the conversation history list in the sidebar.
+ * @param {Array<{id, title, updated_at}>} convs
+ */
+function renderHistoryList(convs) {
+  const $panel = document.getElementById('history-panel');
+  const $list  = document.getElementById('history-list');
+  $list.innerHTML = '';
+
+  if (!convs.length) {
+    $list.innerHTML = '<p class="history-empty">No conversations yet.</p>';
+    $panel.hidden = false;
+    return;
+  }
+
+  convs.forEach(conv => {
+    const btn = document.createElement('button');
+    btn.className        = 'history-item';
+    btn.dataset.convId   = conv.id;
+    btn.setAttribute('role', 'listitem');
+    btn.setAttribute('aria-label', conv.title);
+
+    if (Number(conv.id) === state.convId) {
+      btn.classList.add('history-item--active');
+    }
+
+    const title = document.createElement('span');
+    title.className   = 'history-item-title';
+    title.textContent = conv.title;
+
+    const time = document.createElement('span');
+    time.className   = 'history-item-time';
+    time.textContent = formatRelativeDate(conv.updated_at);
+
+    btn.appendChild(title);
+    btn.appendChild(time);
+    btn.addEventListener('click', () => loadConversation(conv.id));
+    $list.appendChild(btn);
+  });
+
+  $panel.hidden = false;
+}
+
+/**
+ * Format a datetime string into a human-readable relative label.
+ * @param {string} dateStr  ISO or SQLite datetime string
+ * @returns {string}
+ */
+function formatRelativeDate(dateStr) {
+  const d    = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+  const now  = new Date();
+  const diff = now - d;
+  const days = Math.floor(diff / 86_400_000);
+
+  if (days === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (days === 1) return 'Yesterday';
+  if (days < 7)  return d.toLocaleDateString([], { weekday: 'short' });
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
 // ── SVG icons ─────────────────────────────────────────────────────────────
 
 function iconLinkedIn() {
@@ -869,6 +1072,7 @@ function iconCheckCircle() {
 // ── Init ──────────────────────────────────────────────────────────────────
 
 document.getElementById('theme-toggle').addEventListener('click', toggleDarkMode);
+document.getElementById('new-chat-btn')?.addEventListener('click', newConversation);
 
 initDarkMode();
 loadProfile();

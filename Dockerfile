@@ -24,6 +24,8 @@ COPY --from=builder /app/.venv /app/.venv
 # Copy application code
 COPY . .
 
+RUN mkdir -p /app/data && chown -R appuser:appuser /app/data
+
 # HuggingFace Spaces runs containers as a non-root user (uid 1000)
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser

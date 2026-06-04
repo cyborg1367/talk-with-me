@@ -1128,3 +1128,149 @@ body {
   .cta-card { padding: 18px 16px 18px 22px; }
   .cta-title { padding-right: 28px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUTH — SIGN IN BUTTON + SIGNED-IN USER INFO
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* "Sign in" button in the header */
+.signin-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 13px;
+  background: rgba(255,255,255,.92);
+  color: var(--blue-900);
+  border-radius: var(--r-pill);
+  text-decoration: none;
+  font-size: .76rem; font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background .15s, transform .1s;
+  touch-action: manipulation;
+}
+.signin-btn:hover { background: #fff; transform: translateY(-1px); }
+
+/* Signed-in user info */
+.header-user {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-user-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.3);
+  object-fit: cover;
+  background: rgba(255,255,255,.18);
+  flex-shrink: 0;
+}
+
+.header-user-name {
+  font-size: .8rem; font-weight: 600;
+  color: #fff;
+  max-width: 110px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.signout-link {
+  font-size: .72rem; color: rgba(255,255,255,.65);
+  text-decoration: none; white-space: nowrap;
+  transition: color .15s;
+}
+.signout-link:hover { color: #fff; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HISTORY PANEL
+   Sits in the sidebar below the profile card.
+   Visible only when the user is signed in.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.history-panel {
+  margin-top: 12px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.history-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px 9px;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-label {
+  font-size: .7rem; font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+
+/* New chat button */
+.new-chat-btn {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--blue-50); color: var(--blue-800);
+  border: 1px solid var(--blue-100);
+  font-size: .7rem; font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+  touch-action: manipulation;
+}
+.new-chat-btn:hover { background: var(--blue-100); }
+
+/* Scrollable list */
+.history-list {
+  max-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.history-list::-webkit-scrollbar       { width: 3px; }
+.history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Individual conversation row */
+.history-item {
+  display: flex; flex-direction: column; gap: 2px;
+  width: 100%; padding: 9px 14px;
+  text-align: left; background: none; border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .12s;
+}
+.history-item:last-child { border-bottom: none; }
+.history-item:hover      { background: var(--surface-alt); }
+
+.history-item--active,
+.history-item--active:hover {
+  background: var(--blue-50);
+}
+
+.history-item-title {
+  font-size: .78rem; font-weight: 500;
+  color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.history-item--active .history-item-title { color: var(--blue-800); }
+
+.history-item-time {
+  font-size: .65rem; color: var(--text-faint);
+}
+
+.history-empty {
+  padding: 16px 14px;
+  font-size: .78rem; color: var(--text-faint);
+  text-align: center;
+}
+
+/* ── Dark mode overrides ─────────────────────────────────────────────── */
+[data-theme="dark"] .signin-btn { color: var(--blue-900); }
+[data-theme="dark"] .new-chat-btn { background: #0c1e3a; border-color: #1e3a6e; color: #93c5fd; }
+[data-theme="dark"] .new-chat-btn:hover { background: #1e3a6e; }
+[data-theme="dark"] .history-item--active,
+[data-theme="dark"] .history-item--active:hover { background: #0c1e3a; }
+[data-theme="dark"] .history-item--active .history-item-title { color: #93c5fd; }
+
+/* ── Mobile ─────────────────────────────────────────────────────────── */
+@media (max-width: 639px) {
+  /* Sidebar is hidden on mobile; history panel naturally hidden with it */
+  .signin-btn { padding: 4px 10px; font-size: .7rem; }
+  .header-user-name { display: none; }  /* save space — avatar is enough */
+}
