@@ -151,12 +151,33 @@ class Cyborg:
         )
 
         # Regex to detect text-based tool call artifacts some models emit
-        # instead of proper API tool_calls, e.g.:
-        #   <function=record_user_details>{"name": ...}</function>
+        # instead of proper API tool_calls. Catches two formats:
+        #   Format A: <function=tool_name>{"args"}</function>
+        #   Format B: tool_name>{"args"}   (bare format, no <function= prefix)
         _TEXT_TOOL_RE = re.compile(
             r'<function=(\w+)>(.*?)(?:</function>|(?=<function=)|$)',
             re.DOTALL,
         )
+        # Known tool names for bare-format detection
+        _TOOL_NAMES = {
+            'search_projects', 'record_user_details', 'record_unknown_question'
+        }
+
+        def _has_artifact(buf: str) -> bool:
+            if '<function=' in buf:
+                return True
+            return any(f'{name}>' in buf for name in _TOOL_NAMES)
+
+        def _artifact_start(buf: str) -> int:
+            """Return index of the earliest artifact in the buffer."""
+            positions = []
+            if '<function=' in buf:
+                positions.append(buf.index('<function='))
+            for name in _TOOL_NAMES:
+                marker = f'{name}>'
+                if marker in buf:
+                    positions.append(buf.index(marker))
+            return min(positions) if positions else len(buf)
 
         while True:
             # Accumulate tool-call deltas across chunks in this pass.
@@ -188,15 +209,13 @@ class Cyborg:
                     if delta.content:
                         text_buffer += delta.content
 
-                        # If a text-based tool call artifact starts appearing,
-                        # yield everything before it and then process/discard it.
-                        if '<function=' in text_buffer:
-                            safe_end = text_buffer.index('<function=')
+                        if _has_artifact(text_buffer):
+                            safe_end  = _artifact_start(text_buffer)
                             safe_text = text_buffer[:safe_end].rstrip()
                             if safe_text:
                                 yield safe_text
 
-                            # Try to execute any complete tool calls found
+                            # Try to execute any <function=...> tool calls found
                             for match in _TEXT_TOOL_RE.finditer(text_buffer[safe_end:]):
                                 func_name = match.group(1)
                                 try:
@@ -208,10 +227,8 @@ class Cyborg:
                                 except Exception as exc:
                                     logger.warning("Text-tool call failed: %s", exc)
 
-                            text_buffer = ""  # discard artifact, continue
+                            text_buffer = ""
                         else:
-                            # Yield all but last 20 chars (guard against
-                            # '<function=' spanning two chunks)
                             if len(text_buffer) > 20:
                                 yield text_buffer[:-20]
                                 text_buffer = text_buffer[-20:]
@@ -241,7 +258,7 @@ class Cyborg:
                 ) from exc
 
             # Flush any remaining buffered text (no artifact detected)
-            if text_buffer and '<function=' not in text_buffer:
+            if text_buffer and not _has_artifact(text_buffer):
                 yield text_buffer.rstrip()
 
             # ── After stream ends ──────────────────────────────────────────

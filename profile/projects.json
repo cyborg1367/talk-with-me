@@ -1,0 +1,102 @@
+[
+  {
+    "name": "Long-Horizon VRP Scheduling System",
+    "owner": "HbV73",
+    "private": true,
+    "url": "https://github.com/HbV73/new-recycle",
+    "demo": "",
+    "description": "Multi-depot, multi-driver vehicle routing and scheduling system for a used cooking oil collection company, covering 2-3 month planning horizons.",
+    "tech": ["Python", "OR-Tools", "Rolling-Horizon Optimization", "OpenRouteService", "Docker", "Shell"],
+    "highlights": [
+      "Solved multi-depot, multi-driver VRP across 2-3 month rolling horizons using OR-Tools — far beyond typical single-day planners",
+      "Self-hosted OpenRouteService instance to generate real-world distance and duration matrices without third-party API costs",
+      "Implemented rolling-horizon decomposition to break an intractable long-term schedule into overlapping, solvable sub-problems",
+      "Built a customer oil-volume prediction module to forecast future pickup quantities, enabling proactive route planning"
+    ]
+  },
+  {
+    "name": "Genetic Algorithm VRP Engine",
+    "owner": "petroimensharif",
+    "private": true,
+    "url": "https://github.com/petroimensharif/ai",
+    "demo": "",
+    "description": "Custom metaheuristic solver for multi-depot, multi-driver vehicle routing for daily used cooking oil pickup operations.",
+    "tech": ["Python", "Genetic Algorithm", "Tabu Search", "Adaptive Memory Programming"],
+    "highlights": [
+      "Designed an enhanced genetic algorithm combining Tabu Search and Adaptive Memory Programming for high-quality VRP solutions",
+      "Handles multi-depot, multi-driver constraints for real-world daily pickup scheduling in the used cooking oil logistics domain",
+      "Adaptive memory mechanism stores and reuses elite partial solutions to escape local optima more effectively than standard GA",
+      "Outperformed off-the-shelf OR-Tools configurations on company-specific instances due to domain-tuned operators"
+    ]
+  },
+  {
+    "name": "Talk With Me — Personal AI Assistant",
+    "owner": "cyborg1367",
+    "private": false,
+    "url": "https://github.com/cyborg1367/talk_with_me",
+    "demo": "https://cyborgmass-talk-with-me.hf.space",
+    "description": "A personal AI chatbot deployed on HuggingFace Spaces that represents me as an intelligent assistant for website visitors.",
+    "tech": ["Python", "FastAPI", "LLM", "Groq", "Llama 3.3 70B", "Streaming SSE", "Docker"],
+    "highlights": [
+      "Built a full-stack AI chatbot from scratch using FastAPI backend and vanilla JS frontend — no React, no build step",
+      "Integrated Groq's Llama 3.3 70B for fast, high-quality streaming responses with real-time SSE token delivery",
+      "Implemented custom tool-calling layer with artifact filtering to handle Llama's text-based function call format gracefully",
+      "Deployed on HuggingFace Spaces via Docker with a polished responsive UI including dark mode, suggestion chips, and email CTA"
+    ]
+  },
+  {
+    "name": "AI Explorer Hub",
+    "owner": "cyborg1367",
+    "private": false,
+    "url": "https://github.com/cyborg1367/ai-explorer-hub",
+    "demo": "https://ai-explorer-hub-one.vercel.app",
+    "description": "A curated web platform for discovering and exploring AI tools, models, and resources.",
+    "tech": ["TypeScript", "JavaScript", "CSS"],
+    "highlights": [
+      "Built and deployed a fully functional AI tools discovery platform on Vercel",
+      "Developed in TypeScript for type-safe, maintainable frontend code",
+      "Designed clean, responsive UI for browsing and filtering AI resources"
+    ]
+  },
+  {
+    "name": "E-commerce Analytical MCP Server",
+    "owner": "cyborg1367",
+    "private": false,
+    "url": "https://github.com/cyborg1367/ecommerce-analytical-mcp-server",
+    "demo": "",
+    "description": "A Model Context Protocol server exposing e-commerce analytics capabilities to LLM agents.",
+    "tech": ["Python", "MCP", "LLM Agents"],
+    "highlights": [
+      "Built an MCP server that exposes structured e-commerce analytics as tools consumable by LLM agents like Claude",
+      "Enables AI agents to query sales data, customer segments, and product performance through natural language",
+      "Follows the MCP standard for interoperability with any MCP-compatible AI client"
+    ]
+  },
+  {
+    "name": "Data Science Class Files",
+    "owner": "cyborg1367",
+    "private": false,
+    "url": "https://github.com/cyborg1367/data-science-class-files",
+    "demo": "",
+    "description": "Jupyter notebooks covering core data science and machine learning topics from coursework.",
+    "tech": ["Python", "Jupyter Notebook", "Pandas", "Scikit-learn"],
+    "highlights": [
+      "Comprehensive collection of notebooks covering EDA, feature engineering, and ML model development",
+      "Covers classification, regression, clustering, and dimensionality reduction techniques"
+    ]
+  },
+  {
+    "name": "Network Science Book",
+    "owner": "cyborg1367",
+    "private": false,
+    "url": "https://github.com/cyborg1367/network-science-book",
+    "demo": "",
+    "description": "A Quarto-based interactive book for a Network Science university course.",
+    "tech": ["Quarto", "R", "JavaScript", "SCSS", "TeX"],
+    "highlights": [
+      "Authored a full course book on network science using Quarto for rich, interactive publishing",
+      "Covers graph theory, centrality measures, community detection, and real-world network analysis in R",
+      "Designed for academic use with LaTeX-quality typesetting and interactive code outputs"
+    ]
+  }
+]

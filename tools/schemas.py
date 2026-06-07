@@ -6,7 +6,7 @@ Each schema mirrors the signature of its corresponding function in
 to invoke the tool.
 """
 
-from tools.functions import record_unknown_question, record_user_details
+from tools.functions import record_unknown_question, record_user_details, search_projects
 
 record_user_details_schema: dict = {
     "name": record_user_details.__name__,
@@ -53,6 +53,32 @@ record_unknown_question_schema: dict = {
             },
         },
         "required": ["question"],
+        "additionalProperties": False,
+    },
+}
+
+search_projects_schema: dict = {
+    "name": search_projects.__name__,
+    "description": (
+        "Search the owner's portfolio projects by keyword or topic. "
+        "Use this whenever the visitor asks about a specific project, "
+        "technology, or area of work (e.g. 'routing', 'machine learning', "
+        "'Python', 'VRP', 'your projects'). "
+        "Returns the most relevant matching projects with full details."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": (
+                    "Keywords describing what the visitor is asking about. "
+                    "Can be a technology name, project type, or topic — "
+                    "e.g. 'vehicle routing', 'FastAPI', 'machine learning', 'deployed projects'."
+                ),
+            },
+        },
+        "required": ["query"],
         "additionalProperties": False,
     },
 }

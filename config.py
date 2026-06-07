@@ -19,6 +19,7 @@ class Settings:
     timeout: int        = 60
     linkedin_pdf: str   = "profile/linkedin.pdf"
     summary_txt: str    = "profile/summary.txt"
+    projects_json: str  = "profile/projects.json"
 
 
 settings = Settings()

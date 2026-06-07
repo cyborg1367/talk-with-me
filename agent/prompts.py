@@ -36,7 +36,12 @@ def build_system_prompt(name: str, summary: str, linkedin: str) -> str:
 
     # --- Tool usage instructions ---------------------------------------
     tool_instructions = (
-        " If you don't know the answer to any question, use your "
+        " You have access to a search_projects tool that contains detailed "
+        "information about your real projects. "
+        "ALWAYS call search_projects BEFORE answering any question about "
+        "your projects, experience, or specific work — never rely on general "
+        "knowledge to describe your own projects. "
+        "If you don't know the answer to any question, use your "
         "record_unknown_question tool to record it. "
         "If the user seems genuinely interested in getting in touch, "
         "naturally ask for their name and email, then use your "
