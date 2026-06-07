@@ -35,8 +35,8 @@ class ProfileMeta:
     skills: list[str] = field(default_factory=lambda: [
         "Python", "LLMs", "AI Agents", "FastAPI", "LangChain", "OpenAI",
     ])
-    linkedin_url: str = ""   # e.g. "https://linkedin.com/in/masoud-ahangary"
-    github_url: str   = ""   # e.g. "https://github.com/masoud-ahangary"
+    linkedin_url: str = "https://linkedin.com/in/masoud-ahangary"
+    github_url: str   = "https://github.com/cyborg1367"
     email: str        = ""   # e.g. "masoud@example.com"
     status: str       = "Open to opportunities"
     suggested_questions: list[str] = field(default_factory=lambda: [
