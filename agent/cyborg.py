@@ -48,8 +48,9 @@ class Cyborg:
 
         self.name: str = "Masoud Ahangary"
 
-        self._linkedin: str = self._load_linkedin(settings.linkedin_pdf)
-        self._summary: str  = self._load_summary(settings.summary_txt)
+        self._linkedin: str  = self._load_linkedin(settings.linkedin_pdf)
+        self._summary: str   = self._load_summary(settings.summary_txt)
+        self._projects: str  = self._load_projects(settings.projects_json)
 
     # ── Private loaders ───────────────────────────────────────────────────────
 
@@ -62,6 +63,33 @@ class Cyborg:
     def _load_summary(path: str) -> str:
         with open(path, "r", encoding="utf-8") as fh:
             return fh.read()
+
+    @staticmethod
+    def _load_projects(path: str) -> str:
+        """Load projects.json and format it as readable text for the system prompt."""
+        import json as _json
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                projects = _json.load(f)
+            lines = []
+            for p in projects:
+                lines.append(f"### {p.get('name', '')}")
+                if p.get('description'):
+                    lines.append(f"Description: {p['description']}")
+                if p.get('tech'):
+                    lines.append(f"Tech stack: {', '.join(p['tech'])}")
+                if p.get('highlights'):
+                    lines.append("Key highlights:")
+                    for h in p['highlights']:
+                        lines.append(f"  - {h}")
+                if p.get('demo'):
+                    lines.append(f"Live demo: {p['demo']}")
+                if p.get('url') and not p.get('private', True):
+                    lines.append(f"GitHub: {p['url']}")
+                lines.append("")
+            return "\n".join(lines)
+        except (FileNotFoundError, Exception):
+            return ""
 
     # ── Tool dispatch ─────────────────────────────────────────────────────────
 
@@ -90,6 +118,7 @@ class Cyborg:
             name=self.name,
             summary=self._summary,
             linkedin=self._linkedin,
+            projects=self._projects,
         )
 
     # ── Sync chat (fallback) ──────────────────────────────────────────────────
