@@ -9,6 +9,7 @@ Provides two public interfaces:
 
 import json
 import logging
+import re
 from typing import AsyncGenerator
 
 import httpx
@@ -149,10 +150,21 @@ class Cyborg:
             + [{"role": "user", "content": message}]
         )
 
+        # Regex to detect text-based tool call artifacts some models emit
+        # instead of proper API tool_calls, e.g.:
+        #   <function=record_user_details>{"name": ...}</function>
+        _TEXT_TOOL_RE = re.compile(
+            r'<function=(\w+)>(.*?)(?:</function>|(?=<function=)|$)',
+            re.DOTALL,
+        )
+
         while True:
             # Accumulate tool-call deltas across chunks in this pass.
             pending: dict[int, dict] = {}
             finish_reason: str | None = None
+
+            # Buffer accumulated text to detect text-based tool call artifacts
+            text_buffer: str = ""
 
             stream = await self.async_client.chat.completions.create(
                 model=settings.model,
@@ -174,7 +186,35 @@ class Cyborg:
                     delta = choice.delta
 
                     if delta.content:
-                        yield delta.content
+                        text_buffer += delta.content
+
+                        # If a text-based tool call artifact starts appearing,
+                        # yield everything before it and then process/discard it.
+                        if '<function=' in text_buffer:
+                            safe_end = text_buffer.index('<function=')
+                            safe_text = text_buffer[:safe_end].rstrip()
+                            if safe_text:
+                                yield safe_text
+
+                            # Try to execute any complete tool calls found
+                            for match in _TEXT_TOOL_RE.finditer(text_buffer[safe_end:]):
+                                func_name = match.group(1)
+                                try:
+                                    args = json.loads(match.group(2))
+                                    tool_fn = TOOL_REGISTRY.get(func_name)
+                                    if tool_fn:
+                                        tool_fn(**args)
+                                        logger.info("Executed text-tool call: %s", func_name)
+                                except Exception as exc:
+                                    logger.warning("Text-tool call failed: %s", exc)
+
+                            text_buffer = ""  # discard artifact, continue
+                        else:
+                            # Yield all but last 20 chars (guard against
+                            # '<function=' spanning two chunks)
+                            if len(text_buffer) > 20:
+                                yield text_buffer[:-20]
+                                text_buffer = text_buffer[-20:]
 
                     if delta.tool_calls:
                         for tc in delta.tool_calls:
@@ -195,14 +235,14 @@ class Cyborg:
                                     buf["function"]["arguments"] += tc.function.arguments
 
             except httpx.ReadError as exc:
-                # OpenRouter free tier drops the connection mid-stream.
-                # Raise a clean error so the route's except block catches it.
                 logger.warning("Stream dropped by upstream: %s", exc)
                 raise RuntimeError(
                     "The model dropped the connection mid-stream. "
-                    "This is common on free-tier models — consider switching "
-                    "to a paid model in config.py (e.g. openai/gpt-4o-mini)."
                 ) from exc
+
+            # Flush any remaining buffered text (no artifact detected)
+            if text_buffer and '<function=' not in text_buffer:
+                yield text_buffer.rstrip()
 
             # ── After stream ends ──────────────────────────────────────────
             if finish_reason == "tool_calls" and pending:

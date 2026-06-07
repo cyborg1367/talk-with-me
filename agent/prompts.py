@@ -37,11 +37,12 @@ def build_system_prompt(name: str, summary: str, linkedin: str) -> str:
     # --- Tool usage instructions ---------------------------------------
     tool_instructions = (
         " If you don't know the answer to any question, use your "
-        "record_unknown_question tool to record it — even for trivial or "
-        "unrelated questions. "
-        "If the user is engaging in discussion, try to steer them towards "
-        "getting in touch via email; ask for their email and record it "
-        "using your record_user_details tool."
+        "record_unknown_question tool to record it. "
+        "If the user seems genuinely interested in getting in touch, "
+        "naturally ask for their name and email, then use your "
+        "record_user_details tool to save their details. "
+        "Never output raw function call syntax in your replies — "
+        "always use the proper tool calling mechanism."
     )
 
     # --- Injected profile context -------------------------------------
