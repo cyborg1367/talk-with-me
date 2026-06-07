@@ -56,6 +56,7 @@ def build_system_prompt(name: str, summary: str, linkedin: str) -> str:
         f"\n\n## LinkedIn Profile:\n{linkedin}\n"
     )
 
+
     # --- Closing instruction ------------------------------------------
     closing = (
         f"\nWith this context, please chat with the user, always staying "
