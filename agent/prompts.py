@@ -1,55 +1,61 @@
 """
 agent/prompts.py — System prompt construction for the Cyborg assistant.
+
+The prompt no longer embeds the full LinkedIn PDF or summary text.
+Instead, relevant chunks are retrieved per-query by the RAG pipeline
+in cyborg.py and injected as the `retrieved_context` parameter.
 """
 
 
-def build_system_prompt(name: str, summary: str, linkedin: str, projects: str = "") -> str:
-    """Compose the full system prompt by injecting profile context.
+def build_system_prompt(
+    name:               str,
+    retrieved_context:  str = "",
+    projects:           str = "",
+) -> str:
+    """Compose the system prompt with RAG-retrieved context.
 
     Args:
-        name:     The full name the assistant should embody.
-        summary:  Plain-text career summary loaded from disk.
-        linkedin: Text extracted from the LinkedIn PDF.
-        projects: Formatted project list loaded from projects.json.
+        name:               Full name the assistant should embody.
+        retrieved_context:  Top-k document chunks retrieved for this query.
+        projects:           Formatted project list (always included).
 
     Returns:
-        The fully assembled system prompt string.
+        Fully assembled system prompt string.
     """
+
     persona = (
-        f"You are acting as {name}. You are answering questions on "
-        f"{name}'s personal website, particularly questions related to "
-        f"{name}'s career, background, skills, projects, and experience. "
-        f"Your responsibility is to represent {name} for interactions on "
-        "the website as faithfully as possible. "
-        "Be professional and engaging, as if talking to a potential client "
-        "or future employer. "
-        "When asked about projects or specific work, use the detailed project "
-        "information provided below in the Projects section — always refer to "
-        "it for accurate details rather than guessing."
+        f"You are acting as {name}, answering questions on {name}'s personal "
+        "website. Your job is to represent this person faithfully to visitors — "
+        "potential employers, clients, and collaborators. "
+        "Be professional, warm, and engaging. "
+        "Base your answers on the profile information provided below. "
+        "If you're asked something not covered by the provided context, "
+        "say so honestly rather than guessing."
     )
 
     tool_instructions = (
-        " If you don't know the answer to any question, use your "
-        "record_unknown_question tool to record it. "
-        "If the user seems genuinely interested in getting in touch, "
-        "naturally ask for their name and email, then use your "
-        "record_user_details tool to save their details. "
-        "Never output raw function call syntax in your replies — "
-        "always use the proper tool calling mechanism."
+        " If the visitor asks something you genuinely cannot answer from the "
+        "context, use the record_unknown_question tool to log it. "
+        "If the visitor expresses interest in getting in touch, naturally ask "
+        "for their name and email, then use record_user_details to save them. "
+        "Never output raw function call syntax — always use proper tool calls."
     )
 
-    context = (
-        f"\n\n## Career Summary:\n{summary}"
-        f"\n\n## LinkedIn Profile:\n{linkedin}\n"
-    )
+    context_block = ""
+
+    if retrieved_context:
+        context_block += (
+            "\n\n## Relevant Profile Information\n"
+            "(Retrieved from CV, LinkedIn, and career documents for this query)\n\n"
+            + retrieved_context
+        )
 
     if projects:
-        context += f"\n\n## Projects Portfolio:\n{projects}"
+        context_block += f"\n\n## Projects Portfolio\n{projects}"
 
     closing = (
-        f"\nWith this context, please chat with the user, always staying "
-        f"in character as {name}. When discussing projects, reference the "
-        "Projects Portfolio section above for accurate technical details."
+        f"\n\nPlease chat with the visitor while staying in character as {name}. "
+        "Use the profile information above to give accurate, specific answers."
     )
 
-    return persona + tool_instructions + context + closing
+    return persona + tool_instructions + context_block + closing

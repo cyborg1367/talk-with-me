@@ -13,6 +13,10 @@ COPY uv.lock* ./
 # Install production dependencies into a virtualenv
 RUN uv sync --no-dev --no-cache
 
+# Pre-download the embedding model so startup is instant on HuggingFace.
+# The model (~80 MB) is baked into the image and never re-downloaded.
+RUN .venv/bin/python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
 # ── Runtime stage ─────────────────────────────────────────────────────────
 FROM python:3.12-slim
 

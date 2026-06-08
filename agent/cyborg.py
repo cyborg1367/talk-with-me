@@ -1,10 +1,10 @@
 """
-agent/cyborg.py — The Cyborg agent.
+agent/cyborg.py — The Cyborg agent with RAG-powered context retrieval.
 
-Provides two public interfaces:
-  chat()        Synchronous, used as a fallback via asyncio.to_thread.
-  chat_stream() Async generator — yields text chunks as they arrive from
-                the model, handling tool calls inline without blocking.
+At startup, all profile documents are chunked and embedded into a FAISS
+index. For each user message, the most relevant chunks are retrieved and
+injected into the LLM context window — replacing the old approach of
+dumping the full LinkedIn PDF into every prompt.
 """
 
 import json
@@ -18,6 +18,7 @@ from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageParam
 from pypdf import PdfReader
 
 from agent.prompts import build_system_prompt
+from agent.rag import RAGIndex
 from config import settings
 from tools import TOOLS
 from tools.functions import TOOL_REGISTRY
@@ -29,17 +30,14 @@ class Cyborg:
     """AI assistant that embodies Masoud Ahangary for website visitors."""
 
     def __init__(self) -> None:
-        """Initialise sync + async LLM clients and load profile context."""
+        """Initialise LLM clients, load documents, and build the RAG index."""
 
-        # Sync client — used by the blocking chat() method.
         self.client = OpenAI(
             base_url=settings.base_url,
             api_key=settings.openai_api_key,
             timeout=settings.timeout,
         )
 
-        # Async client — used by the streaming chat_stream() method.
-        # Streaming needs a longer read timeout since tokens arrive gradually.
         self.async_client = AsyncOpenAI(
             base_url=settings.base_url,
             api_key=settings.openai_api_key,
@@ -48,92 +46,135 @@ class Cyborg:
 
         self.name: str = "Masoud Ahangary"
 
-        self._linkedin: str  = self._load_linkedin(settings.linkedin_pdf)
-        self._summary: str   = self._load_summary(settings.summary_txt)
-        self._projects: str  = self._load_projects(settings.projects_json)
+        # Load raw text for RAG indexing
+        linkedin_text = self._load_pdf(settings.linkedin_pdf)
+        summary_text  = self._load_text(settings.summary_txt)
 
-    # ── Private loaders ───────────────────────────────────────────────────────
+        # Keep formatted projects for the base system prompt
+        self._projects: str = self._load_projects_formatted(settings.projects_json)
+
+        # Build RAG index over all documents
+        self._rag = RAGIndex()
+        self._rag.build(
+            linkedin_text=linkedin_text,
+            summary_text=summary_text,
+            cv_pdf_path=settings.cv_pdf,
+            projects_json_path=settings.projects_json,
+        )
+
+    # ── Private loaders ────────────────────────────────────────────────────────
 
     @staticmethod
-    def _load_linkedin(path: str) -> str:
-        reader = PdfReader(path)
-        return "".join(page.extract_text() or "" for page in reader.pages)
-
-    @staticmethod
-    def _load_summary(path: str) -> str:
-        with open(path, "r", encoding="utf-8") as fh:
-            return fh.read()
-
-    @staticmethod
-    def _load_projects(path: str) -> str:
-        """Load projects.json and format it as readable text for the system prompt."""
-        import json as _json
+    def _load_pdf(path: str) -> str:
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                projects = _json.load(f)
-            lines = []
+            reader = PdfReader(path)
+            return "".join(page.extract_text() or "" for page in reader.pages)
+        except FileNotFoundError:
+            logger.warning("PDF not found: %s", path)
+            return ""
+
+    @staticmethod
+    def _load_text(path: str) -> str:
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                return fh.read()
+        except FileNotFoundError:
+            logger.warning("Text file not found: %s", path)
+            return ""
+
+    @staticmethod
+    def _load_projects_formatted(path: str) -> str:
+        """Load projects.json and format as readable text for the system prompt."""
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                projects = json.load(fh)
+            lines: list[str] = []
             for p in projects:
                 lines.append(f"### {p.get('name', '')}")
-                if p.get('description'):
+                if p.get("description"):
                     lines.append(f"Description: {p['description']}")
-                if p.get('tech'):
+                if p.get("tech"):
                     lines.append(f"Tech stack: {', '.join(p['tech'])}")
-                if p.get('highlights'):
+                if p.get("highlights"):
                     lines.append("Key highlights:")
-                    for h in p['highlights']:
-                        lines.append(f"  - {h}")
-                if p.get('demo'):
+                    lines.extend(f"  - {h}" for h in p["highlights"])
+                if p.get("demo"):
                     lines.append(f"Live demo: {p['demo']}")
-                if p.get('url') and not p.get('private', True):
+                if p.get("url") and not p.get("private", True):
                     lines.append(f"GitHub: {p['url']}")
                 lines.append("")
             return "\n".join(lines)
-        except (FileNotFoundError, Exception):
+        except Exception as exc:
+            logger.warning("Projects load error: %s", exc)
             return ""
 
-    # ── Tool dispatch ─────────────────────────────────────────────────────────
+    # ── Message building (RAG) ─────────────────────────────────────────────────
+
+    def _build_messages(
+        self,
+        message: str,
+        history: list,
+    ) -> list:
+        """Build the full message list with RAG-retrieved context.
+
+        Retrieves the top-4 chunks most relevant to *message* from the
+        FAISS index and injects them into the system prompt so the LLM
+        has accurate, specific information to answer with.
+
+        Args:
+            message: The latest user message.
+            history: Prior conversation turns.
+
+        Returns:
+            Full messages list ready to send to the LLM.
+        """
+        # Retrieve relevant chunks for this specific query
+        chunks    = self._rag.retrieve(message, top_k=4)
+        retrieved = "\n\n---\n\n".join(c.text for c in chunks) if chunks else ""
+
+        if chunks:
+            sources = ", ".join(set(c.source for c in chunks))
+            logger.info("RAG: retrieved %d chunks from [%s]", len(chunks), sources)
+
+        system = build_system_prompt(
+            name=self.name,
+            retrieved_context=retrieved,
+            projects=self._projects,
+        )
+
+        return (
+            [{"role": "system", "content": system}]
+            + list(history)
+            + [{"role": "user", "content": message}]
+        )
+
+    # ── Tool dispatch ──────────────────────────────────────────────────────────
 
     @staticmethod
     def _handle_tool_calls(tool_calls: list) -> list[dict]:
-        """Execute each tool and return tool-role messages."""
         results: list[dict] = []
         for tool_call in tool_calls:
-            tool_name: str = tool_call.function.name
+            tool_name: str  = tool_call.function.name
             arguments: dict = json.loads(tool_call.function.arguments)
             logger.info("Tool called: %s", tool_name)
             tool_fn = TOOL_REGISTRY.get(tool_name)
-            result: dict = tool_fn(**arguments) if tool_fn else {}
+            result  = tool_fn(**arguments) if tool_fn else {}
             results.append({
-                "role": "tool",
-                "content": json.dumps(result),
+                "role":        "tool",
+                "content":     json.dumps(result),
                 "tool_call_id": tool_call.id,
             })
         return results
 
-    # ── System prompt ─────────────────────────────────────────────────────────
-
-    @property
-    def system_prompt(self) -> str:
-        return build_system_prompt(
-            name=self.name,
-            summary=self._summary,
-            linkedin=self._linkedin,
-            projects=self._projects,
-        )
-
-    # ── Sync chat (fallback) ──────────────────────────────────────────────────
+    # ── Sync chat (fallback) ───────────────────────────────────────────────────
 
     def chat(
         self,
         message: str,
         history: list[ChatCompletionMessageParam],
     ) -> str:
-        """Blocking chat — kept as a fallback. Prefer chat_stream() for new code."""
-        messages: list[ChatCompletionMessageParam] = (
-            [{"role": "system", "content": self.system_prompt}]
-            + history
-            + [{"role": "user", "content": message}]
-        )
+        """Blocking chat with RAG context. Used as streaming fallback."""
+        messages = self._build_messages(message, history)
         while True:
             response = self.client.chat.completions.create(
                 model=settings.model,
@@ -149,47 +190,24 @@ class Cyborg:
                 break
         return response.choices[0].message.content
 
-    # ── Async streaming chat ──────────────────────────────────────────────────
+    # ── Async streaming chat ───────────────────────────────────────────────────
 
     async def chat_stream(
         self,
         message: str,
         history: list[ChatCompletionMessageParam],
     ) -> AsyncGenerator[str, None]:
-        """Yield text chunks as they arrive from the model.
+        """Yield text chunks as they arrive, with RAG context and tool handling."""
 
-        Tool calls are handled inline:
-          1. Stream until the model either emits content or requests tool calls.
-          2. If tool calls are requested, execute them silently.
-          3. Loop back and stream the follow-up response.
+        messages = self._build_messages(message, history)
 
-        The caller sees a continuous stream of text chunks regardless of
-        how many tool-call rounds happen internally.
-
-        Args:
-            message: The latest user message.
-            history: Prior conversation turns.
-
-        Yields:
-            Raw text chunks from the model as they arrive.
-        """
-        messages: list = (
-            [{"role": "system", "content": self.system_prompt}]
-            + list(history)
-            + [{"role": "user", "content": message}]
-        )
-
-        # Regex to detect text-based tool call artifacts some models emit
-        # instead of proper API tool_calls. Catches two formats:
-        #   Format A: <function=tool_name>{"args"}</function>
-        #   Format B: tool_name>{"args"}   (bare format, no <function= prefix)
+        # Text-based tool call artifact filter
         _TEXT_TOOL_RE = re.compile(
             r'<function=(\w+)>(.*?)(?:</function>|(?=<function=)|$)',
             re.DOTALL,
         )
-        # Known tool names for bare-format detection
         _TOOL_NAMES = {
-            'search_projects', 'record_user_details', 'record_unknown_question'
+            'record_user_details', 'record_unknown_question'
         }
 
         def _has_artifact(buf: str) -> bool:
@@ -198,7 +216,6 @@ class Cyborg:
             return any(f'{name}>' in buf for name in _TOOL_NAMES)
 
         def _artifact_start(buf: str) -> int:
-            """Return index of the earliest artifact in the buffer."""
             positions = []
             if '<function=' in buf:
                 positions.append(buf.index('<function='))
@@ -209,12 +226,9 @@ class Cyborg:
             return min(positions) if positions else len(buf)
 
         while True:
-            # Accumulate tool-call deltas across chunks in this pass.
-            pending: dict[int, dict] = {}
-            finish_reason: str | None = None
-
-            # Buffer accumulated text to detect text-based tool call artifacts
-            text_buffer: str = ""
+            pending:       dict[int, dict] = {}
+            finish_reason: str | None      = None
+            text_buffer:   str             = ""
 
             stream = await self.async_client.chat.completions.create(
                 model=settings.model,
@@ -229,7 +243,6 @@ class Cyborg:
                         continue
 
                     choice = chunk.choices[0]
-
                     if choice.finish_reason:
                         finish_reason = choice.finish_reason
 
@@ -244,11 +257,10 @@ class Cyborg:
                             if safe_text:
                                 yield safe_text
 
-                            # Try to execute any <function=...> tool calls found
                             for match in _TEXT_TOOL_RE.finditer(text_buffer[safe_end:]):
                                 func_name = match.group(1)
                                 try:
-                                    args = json.loads(match.group(2))
+                                    args    = json.loads(match.group(2))
                                     tool_fn = TOOL_REGISTRY.get(func_name)
                                     if tool_fn:
                                         tool_fn(**args)
@@ -267,8 +279,7 @@ class Cyborg:
                             idx = tc.index
                             if idx not in pending:
                                 pending[idx] = {
-                                    "id": "",
-                                    "type": "function",
+                                    "id": "", "type": "function",
                                     "function": {"name": "", "arguments": ""},
                                 }
                             buf = pending[idx]
@@ -282,44 +293,33 @@ class Cyborg:
 
             except httpx.ReadError as exc:
                 logger.warning("Stream dropped by upstream: %s", exc)
-                raise RuntimeError(
-                    "The model dropped the connection mid-stream. "
-                ) from exc
+                raise RuntimeError("The model dropped the connection mid-stream.") from exc
 
-            # Flush any remaining buffered text (no artifact detected)
+            # Flush remaining buffer
             if text_buffer and not _has_artifact(text_buffer):
                 yield text_buffer.rstrip()
 
-            # ── After stream ends ──────────────────────────────────────────
+            # Handle tool calls
             if finish_reason == "tool_calls" and pending:
                 tool_calls = [pending[i] for i in sorted(pending)]
-
-                # Add assistant message with accumulated tool calls.
                 messages.append({
                     "role": "assistant",
                     "content": None,
                     "tool_calls": tool_calls,
                 })
-
-                # Execute each tool and append results.
                 for tc in tool_calls:
                     tool_name = tc["function"]["name"]
                     try:
                         args = json.loads(tc["function"]["arguments"])
                     except json.JSONDecodeError:
                         args = {}
-
                     logger.info("Tool called (stream): %s", tool_name)
                     tool_fn = TOOL_REGISTRY.get(tool_name)
-                    result = tool_fn(**args) if tool_fn else {}
-
+                    result  = tool_fn(**args) if tool_fn else {}
                     messages.append({
-                        "role": "tool",
-                        "content": json.dumps(result),
+                        "role":        "tool",
+                        "content":     json.dumps(result),
                         "tool_call_id": tc["id"],
                     })
-
-                # Loop back to stream the response after tool execution.
             else:
-                # Normal finish or empty — we are done.
                 break
