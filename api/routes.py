@@ -100,17 +100,22 @@ async def get_photo():
     if not path.exists():
         raise HTTPException(status_code=404, detail="No photo found.")
     return FileResponse(path, media_type="image/jpeg")
-async def get_projects() -> list:
-    """Return the projects.json list for the portfolio showcase page."""
-    import json
-    from pathlib import Path
-    from config import settings
 
-    path = Path(settings.projects_json)
+
+@router.get("/projects", summary="Get all portfolio projects")
+async def get_projects():
+    """Return the projects.json list for the portfolio showcase page."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    path = _Path(settings.projects_json)
     if not path.exists():
+        logger.warning("projects.json not found at %s", settings.projects_json)
         return []
     try:
         with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
-    except Exception:
+            data = _json.load(fh)
+        return data if isinstance(data, list) else []
+    except Exception as exc:
+        logger.error("Failed to load projects.json: %s", exc)
         return []

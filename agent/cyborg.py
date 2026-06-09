@@ -213,16 +213,20 @@ class Cyborg:
         def _has_artifact(buf: str) -> bool:
             if '<function=' in buf:
                 return True
-            return any(f'{name}>' in buf for name in _TOOL_NAMES)
+            for name in _TOOL_NAMES:
+                if f'{name}>' in buf or f'{name}(' in buf:
+                    return True
+            return False
 
         def _artifact_start(buf: str) -> int:
             positions = []
             if '<function=' in buf:
                 positions.append(buf.index('<function='))
             for name in _TOOL_NAMES:
-                marker = f'{name}>'
-                if marker in buf:
-                    positions.append(buf.index(marker))
+                if f'{name}>' in buf:
+                    positions.append(buf.index(f'{name}>'))
+                if f'{name}(' in buf:
+                    positions.append(buf.index(f'{name}('))
             return min(positions) if positions else len(buf)
 
         while True:

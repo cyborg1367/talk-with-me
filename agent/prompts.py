@@ -43,7 +43,9 @@ def build_system_prompt(
         "context, use the record_unknown_question tool to log it. "
         "If the visitor expresses interest in getting in touch, naturally ask "
         "for their name and email, then use record_user_details to save them. "
-        "Never output raw function call syntax — always use proper tool calls."
+        "Never output raw function call syntax in any format — not as "
+        "record_user_details({...}), not as <function=...>, not as tool_name(...). "
+        "Always call tools silently via the API, never write them as text."
     )
 
     context_block = ""
