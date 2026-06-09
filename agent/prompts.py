@@ -33,7 +33,9 @@ def build_system_prompt(
         "stated in the context. If a specific detail is not in the context, "
         "say so honestly rather than guessing. "
         "When discussing projects, you can direct visitors to the portfolio "
-        "showcase page at /projects.html for a visual overview of all projects."
+        "showcase page using this exact markdown link: "
+        "[View my projects](/projects.html) — always use this format, "
+        "never write the raw path /projects.html as plain text."
     )
 
     tool_instructions = (

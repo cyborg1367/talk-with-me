@@ -30,10 +30,17 @@ if (typeof marked !== 'undefined') {
 function toHtml(text) {
   // Convert markdown to HTML
   let html = typeof marked !== 'undefined' ? marked.parse(text) : escapeHtml(text);
-  // Turn bare internal paths like /projects.html into clickable links
+  // Clean up any bare path link text like >/projects.html< inside anchors
+  // Replace <a href="...">PATH.html</a> with <a href="...">View my projects</a>
   html = html.replace(
-    /(?<!['"=])(\/[\w\-./]+\.html)/g,
-    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+    /(<a [^>]*href="([^"]+\.html)"[^>]*>)\/[^<]+(<\/a>)/g,
+    (match, open, href, close) => {
+      const labels = {
+        '/projects.html': 'View my projects',
+      };
+      const label = labels[href] || 'View page';
+      return `${open}${label}${close}`;
+    }
   );
   return html;
 }
