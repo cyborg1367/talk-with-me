@@ -821,3 +821,19 @@ body {
 
 [data-theme="dark"] .projects-sidebar-link { color: #93c5fd; }
 [data-theme="dark"] .projects-sidebar-link:hover { color: #bfdbfe; }
+
+/* ── Links inside bot bubbles ────────────────────────────────────────────── */
+.bot-bubble a {
+  color: var(--blue-600);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1.5px solid var(--blue-100);
+  transition: color .15s, border-color .15s;
+}
+.bot-bubble a:hover {
+  color: var(--blue-700);
+  border-bottom-color: var(--blue-300);
+}
+
+[data-theme="dark"] .bot-bubble a { color: #93c5fd; border-bottom-color: rgba(147,197,253,.2); }
+[data-theme="dark"] .bot-bubble a:hover { color: #bfdbfe; border-bottom-color: rgba(147,197,253,.4); }
