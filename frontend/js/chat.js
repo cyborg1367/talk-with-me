@@ -28,7 +28,14 @@ if (typeof marked !== 'undefined') {
 }
 
 function toHtml(text) {
-  return typeof marked !== 'undefined' ? marked.parse(text) : escapeHtml(text);
+  // Convert markdown to HTML
+  let html = typeof marked !== 'undefined' ? marked.parse(text) : escapeHtml(text);
+  // Turn bare internal paths like /projects.html into clickable links
+  html = html.replace(
+    /(?<!['"=])(\/[\w\-./]+\.html)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+  );
+  return html;
 }
 
 function escapeHtml(str) {
