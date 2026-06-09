@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from api.models import ChatRequest, ChatResponse, ContactRequest, ContactResponse, ProfileResponse
+from config import settings
 from profile_meta import profile_meta
 from tools.functions import record_user_details
 
