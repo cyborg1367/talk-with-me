@@ -228,7 +228,7 @@ body {
   font-size: .66rem; font-weight: 600; letter-spacing: .01em;
 }
 
-.social-nav { display: flex; flex-direction: row; gap: 5px; }
+.social-nav { display: flex; flex-direction: column; gap: 5px; }
 
 .social-link {
   display: flex; align-items: center; gap: 9px;
@@ -237,7 +237,6 @@ body {
   background: var(--surface-alt); color: var(--text-mid);
   border: 1px solid var(--border);
   transition: background .15s, color .15s, border-color .15s, transform .1s;
-  flex: 1;
 }
 .social-link:hover {
   background: var(--slate-100); color: var(--slate-900);
@@ -809,3 +808,16 @@ body {
 @media (max-width: 639px) {
   .messages { padding-bottom: max(6px, env(safe-area-inset-bottom)); }
 }
+
+/* ── Projects sidebar link ───────────────────────────────────────────────── */
+.projects-sidebar-link {
+  display: block; text-align: center;
+  font-size: .76rem; font-weight: 600;
+  color: var(--blue-600); text-decoration: none;
+  letter-spacing: .01em;
+  transition: color .15s, opacity .15s;
+}
+.projects-sidebar-link:hover { color: var(--blue-700); opacity: .8; }
+
+[data-theme="dark"] .projects-sidebar-link { color: #93c5fd; }
+[data-theme="dark"] .projects-sidebar-link:hover { color: #bfdbfe; }
