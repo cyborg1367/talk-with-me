@@ -22,7 +22,7 @@ tags:
 
 **[🚀 Live Demo](https://cyborgmass-talk-with-me.hf.space)** · **[📂 Portfolio](https://cyborgmass-talk-with-me.hf.space/projects.html)** · **[💻 GitHub](https://github.com/cyborg1367/talk-with-me)**
 
-![Talk With Me screenshot](https://raw.githubusercontent.com/cyborg1367/talk-with-me/main/screenshot.png)
+![Talk With Me screenshot](https://i.postimg.cc/HsRyGkrj/screenshot.png)
 
 ---
 
