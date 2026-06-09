@@ -91,7 +91,15 @@ async def get_profile() -> ProfileResponse:
     )
 
 
-@router.get("/projects", summary="Get all portfolio projects")
+@router.get("/profile/photo", summary="Get profile photo")
+async def get_photo():
+    """Serve the profile photo if it exists, otherwise 404."""
+    from fastapi.responses import FileResponse
+    from pathlib import Path
+    path = Path(settings.photo)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="No photo found.")
+    return FileResponse(path, media_type="image/jpeg")
 async def get_projects() -> list:
     """Return the projects.json list for the portfolio showcase page."""
     import json

@@ -149,6 +149,16 @@ async function loadProfile() {
     document.getElementById('typing-initials').textContent = p.initials;
     document.title = `${p.name} — AI Assistant`;
 
+    // Try to load profile photo — silently ignored if not found
+    const img = new Image();
+    img.onload = () => {
+      const $sbPhoto  = document.getElementById('sb-photo');
+      const $hdrPhoto = document.getElementById('hdr-photo');
+      if ($sbPhoto)  { $sbPhoto.src  = '/api/profile/photo'; $sbPhoto.hidden  = false; }
+      if ($hdrPhoto) { $hdrPhoto.src = '/api/profile/photo'; $hdrPhoto.hidden = false; }
+    };
+    img.src = '/api/profile/photo';
+
     const $skills = document.getElementById('sb-skills');
     p.skills.forEach(skill => {
       const tag = document.createElement('span');
@@ -243,20 +253,69 @@ function showNameOverlay(profileData) {
 
 function startChat(profileData) {
   const firstName = profileData.name?.split(' ')[0] ?? 'me';
-  state.ownerName = profileData.name ?? '';
+  state.ownerName   = profileData.name ?? '';
+  state.profileData = profileData;
 
   const greeting =
     `Hi ${state.userName}! 👋 I'm ${profileData.name}'s AI assistant. `
     + `Feel free to ask me anything about ${firstName}'s background, `
     + `experience, skills, or projects. How can I help you today?`;
 
-  addMessage('bot', greeting);
-  state.history.push({ role: 'user',      content: `Hi, my name is ${state.userName}.` });
-  state.history.push({ role: 'assistant', content: greeting });
+  typeGreeting(greeting, profileData);
+}
 
-  if (profileData.suggested_questions?.length) {
-    showSuggestions(profileData.suggested_questions);
-  }
+/**
+ * Type the greeting word by word into a bot bubble.
+ * Pushes to history and shows suggestion chips after typing finishes.
+ */
+function typeGreeting(text, profileData) {
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const row = document.createElement('div');
+  row.className = 'msg-row bot';
+  row.setAttribute('role', 'article');
+
+  const avatar = document.createElement('div');
+  avatar.className   = 'msg-avatar bot-avatar';
+  avatar.textContent = state.botInitials;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble bot-bubble bubble-streaming';
+
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta'; meta.textContent = time;
+
+  const body = document.createElement('div');
+  body.className = 'msg-body';
+  body.appendChild(bubble); body.appendChild(meta);
+  row.appendChild(avatar); row.appendChild(body);
+  $messages.appendChild(row);
+  scrollToBottom();
+
+  const words = text.split(' ');
+  let i = 0; let built = '';
+  const SPEED = 45;
+
+  const tick = () => {
+    if (i < words.length) {
+      built += (i === 0 ? '' : ' ') + words[i];
+      bubble.innerHTML = toHtml(built);
+      scrollToBottom();
+      i++;
+      setTimeout(tick, SPEED);
+    } else {
+      bubble.classList.remove('bubble-streaming');
+      addCopyButton(bubble);
+      state.history.push({ role: 'user',      content: `Hi, my name is ${state.userName}.` });
+      state.history.push({ role: 'assistant', content: text });
+      saveSession();
+      if (profileData.suggested_questions?.length) {
+        showSuggestions(profileData.suggested_questions);
+      }
+    }
+  };
+
+  setTimeout(tick, 350);
 }
 
 // ── Suggestion chips ──────────────────────────────────────────────────────
@@ -702,6 +761,70 @@ function iconCheckCircle() {
 // ── Init ──────────────────────────────────────────────────────────────────
 
 document.getElementById('theme-toggle').addEventListener('click', toggleDarkMode);
+
+// ── Clear chat ────────────────────────────────────────────────────────────
+document.getElementById('clear-chat-btn')?.addEventListener('click', () => {
+  clearSession();
+  window.location.reload();
+});
+
+// ── Voice input ───────────────────────────────────────────────────────────
+(function initVoice() {
+  const $micBtn = document.getElementById('mic-btn');
+  if (!$micBtn) return;
+
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    $micBtn.hidden = true;  // hide on unsupported browsers
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.continuous     = false;
+  recognition.interimResults = true;
+  recognition.lang           = 'en-US';
+
+  let recording = false;
+
+  $micBtn.addEventListener('click', () => {
+    if (recording) {
+      recognition.stop();
+    } else {
+      recognition.start();
+    }
+  });
+
+  recognition.onstart = () => {
+    recording = true;
+    $micBtn.classList.add('recording');
+    $micBtn.setAttribute('aria-label', 'Stop recording');
+  };
+
+  recognition.onresult = (e) => {
+    const transcript = Array.from(e.results)
+      .map(r => r[0].transcript)
+      .join('');
+    $input.value = transcript;
+    autoGrow();
+    syncSendBtn();
+  };
+
+  recognition.onend = () => {
+    recording = false;
+    $micBtn.classList.remove('recording');
+    $micBtn.setAttribute('aria-label', 'Voice input');
+    // Auto-send if there's text
+    if ($input.value.trim()) sendMessage();
+  };
+
+  recognition.onerror = (e) => {
+    recording = false;
+    $micBtn.classList.remove('recording');
+    console.warn('Speech recognition error:', e.error);
+  };
+})();
 
 initDarkMode();
 loadProfile();
