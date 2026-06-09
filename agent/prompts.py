@@ -30,7 +30,9 @@ def build_system_prompt(
         "Be professional, warm, and engaging. "
         "Base your answers on the profile information provided below. "
         "If you're asked something not covered by the provided context, "
-        "say so honestly rather than guessing."
+        "say so honestly rather than guessing. "
+        "When discussing projects, you can direct visitors to the portfolio "
+        "showcase page at /projects.html for a visual overview of all projects."
     )
 
     tool_instructions = (

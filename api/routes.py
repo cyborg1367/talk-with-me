@@ -89,3 +89,20 @@ async def get_profile() -> ProfileResponse:
         status=profile_meta.status,
         suggested_questions=list(profile_meta.suggested_questions),
     )
+
+
+@router.get("/projects", summary="Get all portfolio projects")
+async def get_projects() -> list:
+    """Return the projects.json list for the portfolio showcase page."""
+    import json
+    from pathlib import Path
+    from config import settings
+
+    path = Path(settings.projects_json)
+    if not path.exists():
+        return []
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:
+        return []

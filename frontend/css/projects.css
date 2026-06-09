@@ -1,0 +1,248 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   projects.css — Portfolio showcase page
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Page base ───────────────────────────────────────────────────────────── */
+.projects-page {
+  height: auto;
+  overflow: auto;
+  background: var(--slate-100);
+}
+
+[data-theme="dark"] .projects-page {
+  background: #080e1c;
+}
+
+/* ── Back to chat button ─────────────────────────────────────────────────── */
+.back-to-chat {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 13px;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: var(--r-pill);
+  color: rgba(255,255,255,.9);
+  text-decoration: none;
+  font-size: .76rem; font-weight: 600;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.back-to-chat:hover { background: rgba(255,255,255,.22); }
+
+/* ── Hero section ────────────────────────────────────────────────────────── */
+.projects-hero {
+  max-width: 860px; margin: 0 auto;
+  padding: 52px 32px 40px;
+  text-align: center;
+}
+
+.projects-hero-label {
+  font-size: .72rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--blue-600);
+  margin-bottom: 12px;
+}
+
+.projects-hero-title {
+  font-size: 2.6rem; font-weight: 800;
+  color: var(--text); letter-spacing: -.04em;
+  line-height: 1.15; margin-bottom: 14px;
+}
+
+.projects-hero-sub {
+  font-size: 1rem; color: var(--text-mid);
+  line-height: 1.65; max-width: 520px; margin: 0 auto;
+}
+
+@media (max-width: 639px) {
+  .projects-hero { padding: 36px 20px 28px; }
+  .projects-hero-title { font-size: 1.9rem; }
+}
+
+/* ── Grid ────────────────────────────────────────────────────────────────── */
+.projects-main {
+  max-width: 1100px; margin: 0 auto;
+  padding: 0 32px 80px;
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+@media (max-width: 639px) {
+  .projects-main { padding: 0 16px 60px; }
+  .projects-grid { grid-template-columns: 1fr; gap: 16px; }
+}
+
+/* ── Skeleton loaders ────────────────────────────────────────────────────── */
+.project-skeleton {
+  height: 280px; border-radius: var(--r-xl);
+  background: linear-gradient(90deg,
+    var(--surface-alt) 25%,
+    var(--surface-ui) 50%,
+    var(--surface-alt) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Project card ────────────────────────────────────────────────────────── */
+.project-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
+  animation: cardFadeIn .35s ease-out both;
+}
+
+.project-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+@keyframes cardFadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Card accent bar — gradient based on index */
+.project-card-accent {
+  height: 4px;
+  background: linear-gradient(90deg, var(--indigo-600), var(--blue-500));
+  flex-shrink: 0;
+}
+
+.project-card:nth-child(3n+1) .project-card-accent {
+  background: linear-gradient(90deg, var(--indigo-600), var(--blue-500));
+}
+.project-card:nth-child(3n+2) .project-card-accent {
+  background: linear-gradient(90deg, #7c3aed, var(--indigo-500));
+}
+.project-card:nth-child(3n+3) .project-card-accent {
+  background: linear-gradient(90deg, var(--blue-700), #0ea5e9);
+}
+
+/* Card body */
+.project-card-body {
+  padding: 22px 22px 18px;
+  flex: 1; display: flex; flex-direction: column; gap: 12px;
+}
+
+/* Card header row */
+.project-card-header {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 12px;
+}
+
+.project-card-name {
+  font-size: 1rem; font-weight: 700;
+  color: var(--text); letter-spacing: -.025em;
+  line-height: 1.3;
+}
+
+.project-card-badges {
+  display: flex; gap: 6px; flex-shrink: 0; margin-top: 2px;
+}
+
+.project-badge-demo {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: var(--r-pill);
+  background: var(--green-50); color: var(--green-700);
+  border: 1px solid var(--green-200);
+  font-size: .65rem; font-weight: 700;
+  text-decoration: none; white-space: nowrap;
+  transition: background .15s;
+}
+.project-badge-demo:hover { background: var(--green-200); }
+
+.project-badge-github {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: var(--r-pill);
+  background: var(--surface-alt); color: var(--text-mid);
+  border: 1px solid var(--border);
+  font-size: .65rem; font-weight: 700;
+  text-decoration: none; white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+.project-badge-github:hover {
+  background: var(--slate-200); color: var(--slate-900);
+}
+
+/* Description */
+.project-card-desc {
+  font-size: .82rem; color: var(--text-mid);
+  line-height: 1.6;
+}
+
+/* Tech tags */
+.project-tech-list {
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+
+.project-tech-tag {
+  padding: 3px 9px; border-radius: var(--r-pill);
+  background: var(--blue-50); color: var(--blue-700);
+  border: 1px solid var(--blue-100);
+  font-size: .65rem; font-weight: 600; letter-spacing: .01em;
+}
+
+/* Highlights */
+.project-highlights {
+  border-top: 1px solid var(--border);
+  padding-top: 12px; margin-top: auto;
+}
+
+.project-highlights-title {
+  font-size: .68rem; font-weight: 700;
+  color: var(--text-faint); text-transform: uppercase;
+  letter-spacing: .06em; margin-bottom: 8px;
+}
+
+.project-highlights-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 5px;
+}
+
+.project-highlights-list li {
+  font-size: .78rem; color: var(--text-mid);
+  line-height: 1.5;
+  padding-left: 14px; position: relative;
+}
+
+.project-highlights-list li::before {
+  content: '▸';
+  position: absolute; left: 0;
+  color: var(--blue-500); font-size: .65rem;
+  top: 3px;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.projects-footer {
+  text-align: center;
+  padding: 0 0 40px;
+}
+
+.projects-footer-link {
+  font-size: .82rem; color: var(--text-faint);
+  text-decoration: none;
+  transition: color .15s;
+}
+.projects-footer-link:hover { color: var(--blue-600); }
+
+/* ── Dark mode ───────────────────────────────────────────────────────────── */
+[data-theme="dark"] .projects-hero-label { color: #93c5fd; }
+[data-theme="dark"] .project-card { background: #0d1629; border-color: #1a2744; }
+[data-theme="dark"] .project-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,.4); }
+[data-theme="dark"] .project-tech-tag { background: rgba(37,99,235,.12); color: #93c5fd; border-color: rgba(37,99,235,.2); }
+[data-theme="dark"] .project-badge-demo { background: rgba(21,128,61,.12); border-color: rgba(74,222,128,.2); color: #4ade80; }
+[data-theme="dark"] .project-badge-github { background: #1e293b; border-color: #334155; }
+[data-theme="dark"] .project-badge-github:hover { background: #334155; color: var(--text); }
+[data-theme="dark"] .project-highlights { border-color: #1a2744; }
+[data-theme="dark"] .project-skeleton { background: linear-gradient(90deg, #0d1629 25%, #111d35 50%, #0d1629 75%); background-size: 200% 100%; }
