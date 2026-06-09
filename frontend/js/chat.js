@@ -51,6 +51,31 @@ function escapeHtml(str) {
   return el.innerHTML;
 }
 
+// ── localStorage persistence ──────────────────────────────────────────────
+
+const STORAGE_KEY = 'twm_session';
+
+function saveSession() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      userName: state.userName,
+      history:  state.history,
+    }));
+  } catch {}
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function clearSession() {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
 // ── Dark mode ─────────────────────────────────────────────────────────────
 
 function initDarkMode() {
@@ -150,7 +175,30 @@ async function loadProfile() {
       });
     }
 
-    showNameOverlay(p);
+    // ── Check for saved session ───────────────────────────────────────────
+    const saved = loadSession();
+
+    if (saved && saved.userName && saved.history?.length) {
+      // Returning visitor — restore without showing name overlay
+      state.userName   = saved.userName;
+      state.history    = saved.history;
+      state.profileData = p;
+      state.botInitials = p.initials;
+      state.ownerName  = p.name ?? '';
+      state.firstMessageSent = true;
+
+      document.getElementById('name-overlay')?.remove();
+
+      // Render saved messages
+      for (const msg of saved.history) {
+        addMessage(msg.role, msg.content);
+      }
+      scrollToBottom();
+
+    } else {
+      // New visitor — show name overlay
+      showNameOverlay(p);
+    }
 
   } catch (err) {
     console.error('Profile load failed:', err);
@@ -178,6 +226,7 @@ function showNameOverlay(profileData) {
     const name = $nameInput.value.trim();
     if (!name) return;
     state.userName = name;
+    saveSession();
     $overlay.classList.add('hiding');
     $overlay.addEventListener('animationend', () => {
       $overlay.remove();
@@ -367,6 +416,7 @@ async function sendMessage() {
 
   const historySnapshot = [...state.history];
   state.history.push({ role: 'user', content: text });
+  saveSession();
 
   showTyping();
 
@@ -438,6 +488,7 @@ async function sendMessage() {
 
     if (fullResponse) {
       state.history.push({ role: 'assistant', content: fullResponse });
+      saveSession();
       state.botResponseCount++;
       if (state.botResponseCount === 3 && !state.ctaShown) {
         state.ctaShown = true;
